@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI Legal Aid Multi-Agent System powered by IBM Granite LLM — free legal information for everyone." />
+    <title>AI Legal Aid System | Powered by IBM Granite</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ HEADER ══ -->
+<header class="site-header">
+    <div class="header-inner">
+        <div class="header-brand">
+            <span class="brand-icon" aria-hidden="true">⚖️</span>
+            <div>
+                <h1 class="brand-title">AI Legal Aid System</h1>
+                <p class="brand-sub">Powered by <strong>IBM Granite LLM</strong> via IBM watsonx.ai</p>
+            </div>
+        </div>
+        <div class="header-badge">
+            <span class="badge badge-demo" id="demoBadge">Demo Mode</span>
+            <span class="badge badge-live" id="liveBadge" style="display:none;">Live AI</span>
+        </div>
+    </div>
+</header>
+
+<!-- ══════════════════════════════════════════════ TOP DISCLAIMER ══ -->
+<div class="disclaimer-banner" role="alert" aria-live="polite">
+    <span class="disclaimer-icon" aria-hidden="true">⚠️</span>
+    <p>
+        <strong>Legal Disclaimer:</strong> This system provides <strong>general legal information only</strong> — 
+        not legal advice. It does not replace a qualified lawyer. Always consult a licensed legal professional 
+        for your specific situation.
+    </p>
+</div>
+
+<!-- ════════════════════════════════════════════════ MAIN CONTENT ══ -->
+<main class="main-container" id="main">
+
+    <!-- ── Query Form ──────────────────────────────────────────────── -->
+    <section class="card form-card" aria-labelledby="formTitle">
+        <div class="card-header">
+            <h2 id="formTitle" class="card-title">
+                <span aria-hidden="true">📋</span> Describe Your Legal Situation
+            </h2>
+            <p class="card-subtitle">
+                Fill in the details below. Our AI agents will research relevant laws and resources for your jurisdiction.
+            </p>
+        </div>
+
+        <form id="legalQueryForm" novalidate aria-label="Legal query form">
+
+            <!-- Row 1: Country + State -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="country" class="form-label">
+                        Country <span class="required" aria-label="required">*</span>
+                    </label>
+                    <select id="country" name="country" class="form-select" required aria-required="true">
+                        <option value="">— Select your country —</option>
+                        {% for c in supported_countries %}
+                        <option value="{{ c }}">{{ c }}</option>
+                        {% endfor %}
+                    </select>
+                    <span class="field-error" id="countryError" role="alert"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="state" class="form-label">
+                        State / Province / Region
+                        <span class="optional-hint">(recommended)</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="state"
+                        name="state"
+                        class="form-input"
+                        placeholder="e.g. California, Ontario, New South Wales"
+                        maxlength="100"
+                        autocomplete="address-level1"
+                        aria-describedby="stateHint"
+                    />
+                    <span id="stateHint" class="field-hint">More specific results when provided</span>
+                </div>
+            </div>
+
+            <!-- Row 2: Legal Issue Category -->
+            <div class="form-group">
+                <label for="issueCategory" class="form-label">
+                    Legal Issue Category <span class="required" aria-label="required">*</span>
+                </label>
+                <select id="issueCategory" name="issue_category" class="form-select" required aria-required="true">
+                    <option value="">— Select the type of legal issue —</option>
+                    {% for cat in legal_categories %}
+                    <option value="{{ cat }}">{{ cat }}</option>
+                    {% endfor %}
+                </select>
+                <span class="field-error" id="categoryError" role="alert"></span>
+            </div>
+
+            <!-- Row 3: Description -->
+            <div class="form-group">
+                <label for="description" class="form-label">
+                    Describe Your Situation
+                    <span class="optional-hint">(optional but recommended)</span>
+                </label>
+                <textarea
+                    id="description"
+                    name="description"
+                    class="form-textarea"
+                    rows="5"
+                    maxlength="2000"
+                    placeholder="Briefly describe your legal situation. For example: 'My landlord gave me 3 days to leave without any written reason. I have paid my rent on time.' — Do not include personal details like your full name, address, or case numbers."
+                    aria-describedby="descHint descCount"
+                ></textarea>
+                <div class="textarea-footer">
+                    <span id="descHint" class="field-hint">Do not include personal identifying information</span>
+                    <span id="descCount" class="char-count" aria-live="polite">0 / 2000</span>
+                </div>
+            </div>
+
+            <!-- Privacy notice -->
+            <div class="privacy-notice" role="note">
+                <span aria-hidden="true">🔒</span>
+                <span>
+                    <strong>Privacy:</strong> Your query is processed in-session only and is not stored, 
+                    logged, or shared. Do not include your full name, address, or case numbers.
+                </span>
+            </div>
+
+            <!-- Submit -->
+            <div class="form-actions">
+                <button type="submit" id="submitBtn" class="btn btn-primary" aria-describedby="submitHint">
+                    <span class="btn-icon" aria-hidden="true">🔍</span>
+                    <span class="btn-text">Get Legal Information</span>
+                </button>
+                <span id="submitHint" class="field-hint">
+                    Our 4 AI agents will research laws and resources for your jurisdiction
+                </span>
+            </div>
+
+        </form>
+    </section>
+
+    <!-- ── Progress Indicator ─────────────────────────────────────── -->
+    <section class="progress-section" id="progressSection" style="display:none;" aria-live="polite" aria-label="Processing status">
+        <div class="card progress-card">
+            <div class="progress-header">
+                <div class="spinner" aria-hidden="true"></div>
+                <div>
+                    <h3 class="progress-title">AI Agents Working…</h3>
+                    <p class="progress-subtitle" id="progressSubtitle">Initialising pipeline…</p>
+                </div>
+            </div>
+            <div class="agent-steps" role="list">
+                <div class="agent-step" id="step1" role="listitem">
+                    <span class="step-icon pending" aria-hidden="true">🔍</span>
+                    <span class="step-label">Agent 1: Query Understanding</span>
+                    <span class="step-status" aria-label="pending">Waiting…</span>
+                </div>
+                <div class="agent-step" id="step2" role="listitem">
+                    <span class="step-icon pending" aria-hidden="true">📚</span>
+                    <span class="step-label">Agent 2: Legal Research</span>
+                    <span class="step-status" aria-label="pending">Waiting…</span>
+                </div>
+                <div class="agent-step" id="step3" role="listitem">
+                    <span class="step-icon pending" aria-hidden="true">📄</span>
+                    <span class="step-label">Agent 3: Document Analysis</span>
+                    <span class="step-status" aria-label="pending">Waiting…</span>
+                </div>
+                <div class="agent-step" id="step4" role="listitem">
+                    <span class="step-icon pending" aria-hidden="true">🤝</span>
+                    <span class="step-label">Agent 4: Legal Aid Finder</span>
+                    <span class="step-status" aria-label="pending">Waiting…</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ── Crisis Banner (shown when crisis keywords detected) ──────── -->
+    <section class="crisis-banner" id="crisisBanner" style="display:none;" role="alert" aria-live="assertive">
+        <div class="crisis-inner">
+            <h3>🆘 Are You in Immediate Danger?</h3>
+            <p>We detected keywords that suggest you may be in a crisis situation. 
+               Please reach out for immediate help:</p>
+            <ul class="crisis-list">
+                <li><strong>Emergency Services:</strong> 911 (US) | 999 (UK) | 112 (EU) | 000 (Australia)</li>
+                <li><strong>National DV Hotline (US):</strong> <a href="tel:18007997233">1-800-799-7233</a> | <a href="https://www.thehotline.org" target="_blank" rel="noopener">thehotline.org</a></li>
+                <li><strong>Crisis Text Line:</strong> Text HOME to 741741</li>
+                <li><strong>RAINN (Sexual Assault):</strong> <a href="tel:18006564673">1-800-656-4673</a></li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- ── Results Section ────────────────────────────────────────── -->
+    <section class="results-section" id="resultsSection" style="display:none;" aria-label="Legal aid results">
+
+        <!-- Results header -->
+        <div class="results-header" id="resultsHeader">
+            <div class="results-meta">
+                <span class="results-jurisdiction" id="resultsJurisdiction"></span>
+                <span class="results-category" id="resultsCategory"></span>
+                <span class="results-time" id="resultsTime"></span>
+            </div>
+            <button class="btn btn-outline btn-sm" id="newQueryBtn" type="button">
+                ← New Query
+            </button>
+        </div>
+
+        <!-- Agent 1 Output -->
+        <div class="agent-card" id="agentCard1">
+            <button class="agent-card-header" aria-expanded="true" aria-controls="agentBody1" type="button">
+                <div class="agent-card-title-group">
+                    <span class="agent-number">01</span>
+                    <div>
+                        <h3 class="agent-card-title" id="agentTitle1"></h3>
+                        <p class="agent-card-subtitle" id="agentSubtitle1"></p>
+                    </div>
+                </div>
+                <span class="accordion-icon" aria-hidden="true">▼</span>
+            </button>
+            <div class="agent-card-body" id="agentBody1">
+                <div class="agent-output" id="agentOutput1"></div>
+            </div>
+        </div>
+
+        <!-- Agent 2 Output -->
+        <div class="agent-card" id="agentCard2">
+            <button class="agent-card-header" aria-expanded="true" aria-controls="agentBody2" type="button">
+                <div class="agent-card-title-group">
+                    <span class="agent-number">02</span>
+                    <div>
+                        <h3 class="agent-card-title" id="agentTitle2"></h3>
+                        <p class="agent-card-subtitle" id="agentSubtitle2"></p>
+                    </div>
+                </div>
+                <span class="accordion-icon" aria-hidden="true">▼</span>
+            </button>
+            <div class="agent-card-body" id="agentBody2">
+                <div class="agent-output" id="agentOutput2"></div>
+            </div>
+        </div>
+
+        <!-- Agent 3 Output (highlighted — main explanation) -->
+        <div class="agent-card agent-card--highlight" id="agentCard3">
+            <button class="agent-card-header" aria-expanded="true" aria-controls="agentBody3" type="button">
+                <div class="agent-card-title-group">
+                    <span class="agent-number">03</span>
+                    <div>
+                        <h3 class="agent-card-title" id="agentTitle3"></h3>
+                        <p class="agent-card-subtitle" id="agentSubtitle3"></p>
+                    </div>
+                </div>
+                <span class="accordion-icon" aria-hidden="true">▼</span>
+            </button>
+            <div class="agent-card-body" id="agentBody3">
+                <div class="agent-output" id="agentOutput3"></div>
+            </div>
+        </div>
+
+        <!-- Agent 4 Output -->
+        <div class="agent-card" id="agentCard4">
+            <button class="agent-card-header" aria-expanded="true" aria-controls="agentBody4" type="button">
+                <div class="agent-card-title-group">
+                    <span class="agent-number">04</span>
+                    <div>
+                        <h3 class="agent-card-title" id="agentTitle4"></h3>
+                        <p class="agent-card-subtitle" id="agentSubtitle4"></p>
+                    </div>
+                </div>
+                <span class="accordion-icon" aria-hidden="true">▼</span>
+            </button>
+            <div class="agent-card-body" id="agentBody4">
+                <div class="agent-output" id="agentOutput4"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Full Disclaimer -->
+        <div class="disclaimer-full" id="fullDisclaimer" role="note" aria-label="Full legal disclaimer">
+            <h4 class="disclaimer-title">⚠️ Important Legal Disclaimer</h4>
+            <div id="disclaimerText"></div>
+        </div>
+
+        <!-- Powered by badge -->
+        <div class="powered-by">
+            <span>Powered by</span>
+            <strong>IBM Granite 3.3 8B Instruct</strong>
+            <span>via</span>
+            <strong>IBM watsonx.ai</strong>
+        </div>
+
+    </section>
+
+    <!-- ── Error Section ──────────────────────────────────────────── -->
+    <div class="error-section" id="errorSection" style="display:none;" role="alert" aria-live="assertive">
+        <div class="card error-card">
+            <span class="error-icon" aria-hidden="true">⚠️</span>
+            <p class="error-message" id="errorMessage"></p>
+            <button class="btn btn-outline" id="retryBtn" type="button">Try Again</button>
+        </div>
+    </div>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════ FOOTER ══ -->
+<footer class="site-footer">
+    <div class="footer-inner">
+        <p class="footer-disclaimer">
+            ⚖️ <strong>AI Legal Aid System</strong> — Provides general legal information only. 
+            Not legal advice. Always consult a qualified lawyer for your specific situation.
+        </p>
+        <p class="footer-tech">
+            Built with IBM Granite LLM | IBM watsonx.ai | Flask | Responsible AI Principles
+        </p>
+        <p class="footer-ethics">
+            🔒 Privacy-first: No data stored &nbsp;|&nbsp; 
+            🤝 AI Ethics: Transparent &amp; Fair &nbsp;|&nbsp; 
+            ✅ Guardrails: Safe AI Output
+        </p>
+    </div>
+</footer>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
